@@ -6,7 +6,7 @@ pub trait Logger {
 }
 
 pub struct Controller {
-    rover: Rover,
+    initial_rover: Rover,
     mars: Mars,
     renderer: Box<dyn MarsRenderer>,
     logger: Box<dyn Logger>,
@@ -14,32 +14,32 @@ pub struct Controller {
 
 impl Controller {
     pub fn new(rover: Rover, mars: Mars, renderer: Box<dyn MarsRenderer>, logger: Box<dyn Logger>) -> Controller {
-        Controller { rover: rover, mars: mars, renderer: renderer, logger: logger }
+        Controller { initial_rover: rover, mars: mars, renderer: renderer, logger: logger }
     }
 
     pub fn execute_commands(&self, commands: String) -> Rover {
         let mut commands_chars = commands.chars();
-        let mut current_rover = self.rover;
+        let mut current_rover = self.initial_rover;
         self.logger.log(format!("{}", self.renderer.render(&self.mars, &current_rover)));
         while let Some(command) = commands_chars.next() {
             self.logger.log(format!("Executing command {}", command));
-            current_rover = self.try_and_execute_command(&self.mars, current_rover, command);
+            current_rover = self.try_and_execute_command(command, current_rover);
             self.logger.log(format!("{}", self.renderer.render(&self.mars, &current_rover)));
         }
         current_rover
     }
 
-    fn try_and_execute_command(&self, mars: &Mars, rover: Rover, command: char) -> Rover {
+    fn try_and_execute_command(&self, command: char, rover: Rover) -> Rover {
         let new_rover = self.execute_command(command, rover);
-        if mars.has_obstacle(new_rover.position) {
+        if self.mars.has_obstacle(new_rover.position) {
             self.logger.log(format!("/!\\ Invalid move requested, skipping"));
-            return rover;
+            rover
         } else {
-            return new_rover;
+            new_rover
         }
     }
 
-    pub fn execute_command(&self, command: char, rover: Rover) -> Rover {
+    fn execute_command(&self, command: char, rover: Rover) -> Rover {
         match command {
             'F' => rover.move_forward(),
             'B' => rover.move_backward(),
