@@ -1,25 +1,30 @@
 use crate::rover::Rover;
 use crate::mars::{Mars, MarsRenderer};
 
+pub trait Logger {
+    fn log(&self, message: String);
+}
+
 pub struct Controller {
     rover: Rover,
     mars: Mars,
     renderer: Box<dyn MarsRenderer>,
+    logger: Box<dyn Logger>,
 }
 
 impl Controller {
-    pub fn new(rover: Rover, mars: Mars, renderer: Box<dyn MarsRenderer>) -> Controller {
-        Controller { rover: rover, mars: mars, renderer: renderer }
+    pub fn new(rover: Rover, mars: Mars, renderer: Box<dyn MarsRenderer>, logger: Box<dyn Logger>) -> Controller {
+        Controller { rover: rover, mars: mars, renderer: renderer, logger: logger }
     }
 
     pub fn execute_commands(&self, commands: String) -> Rover {
         let mut commands_chars = commands.chars();
         let mut current_rover = self.rover;
-        println!("{}", self.renderer.render(&self.mars, &current_rover));
+        self.logger.log(format!("{}", self.renderer.render(&self.mars, &current_rover)));
         while let Some(command) = commands_chars.next() {
-            println!("Executing command {}", command);
+            self.logger.log(format!("Executing command {}", command));
             current_rover = self.try_and_execute_command(&self.mars, current_rover, command);
-            println!("{}", self.renderer.render(&self.mars, &current_rover));
+            self.logger.log(format!("{}", self.renderer.render(&self.mars, &current_rover)));
         }
         current_rover
     }
@@ -27,7 +32,7 @@ impl Controller {
     fn try_and_execute_command(&self, mars: &Mars, rover: Rover, command: char) -> Rover {
         let new_rover = self.execute_command(command, rover);
         if mars.has_obstacle(new_rover.position) {
-            println!("/!\\ Invalid move requested, skipping");
+            self.logger.log(format!("/!\\ Invalid move requested, skipping"));
             return rover;
         } else {
             return new_rover;
@@ -45,11 +50,18 @@ impl Controller {
     }
 }
 
-pub struct MockMarsRenderer {}
+struct MockMarsRenderer {}
 
 impl MarsRenderer for MockMarsRenderer {
     fn render(&self, _mars: &Mars, _rover: &Rover) -> String {
         "".to_string()
+    }
+}
+
+struct MockLogger {}
+
+impl Logger for MockLogger {
+    fn log(&self, _message: String) {
     }
 }
 
@@ -60,7 +72,8 @@ fn shall_control_rover() {
     let mut mars = Mars::new(5);
     mars.add_obstacle(crate::rover::Position { x: 1, y: 1 });
     let renderer = MockMarsRenderer{};
-    let controller = Controller::new(rover, mars, Box::new(renderer));
+    let logger = MockLogger{};
+    let controller = Controller::new(rover, mars, Box::new(renderer), Box::new(logger));
     // When
     rover = controller.execute_commands("FFBFRFLLLF".to_string());
     // Then
